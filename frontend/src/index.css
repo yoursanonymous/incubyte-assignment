@@ -1,0 +1,62 @@
+@import '@fontsource/barlow-condensed/600.css';
+@import '@fontsource/barlow-condensed/700.css';
+@import '@fontsource/barlow/400.css';
+@import '@fontsource/barlow/500.css';
+@import '@fontsource/barlow/600.css';
+@import 'tailwindcss';
+
+@theme {
+  --font-display: 'Barlow Condensed', 'Arial Narrow', 'Helvetica Neue', sans-serif;
+  --font-sans: 'Barlow', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --color-asphalt: #1b242c;
+  --color-asphalt-2: #2b3742;
+  --color-concrete: #e8ebee;
+  --color-paper: #f8f9fa;
+  --color-ink: #131b22;
+  --color-muted: #4d5b67;
+  --color-line: #c5ccd3;
+  --color-paint: #f5c518;
+  --color-paint-deep: #d9a900;
+  --color-go: #12694a;
+  --color-stop: #a82c1a;
+}
+
+html {
+  background: var(--color-concrete);
+  color: var(--color-ink);
+}
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Visible on both light and dark surfaces: dark outline plus a yellow halo. */
+:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px var(--color-paint);
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--color-line) 25%, #dde2e6 50%, var(--color-line) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}

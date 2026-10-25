@@ -1,0 +1,23 @@
+{
+  "name": "dealership-inventory",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Car dealership inventory system (modular monolith: Express + Prisma/PostgreSQL, React + Tailwind)",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "workspaces": [
+    "backend",
+    "frontend",
+    "e2e"
+  ],
+  "scripts": {
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "test:e2e": "npm run build -w frontend && npm run test -w e2e"
+  }
+}

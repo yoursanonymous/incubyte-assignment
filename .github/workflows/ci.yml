@@ -1,0 +1,67 @@
+name: CI
+on:
+  push: { branches: [main] }
+  pull_request:
+
+permissions: { contents: read }
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          {
+            POSTGRES_USER: dealership,
+            POSTGRES_PASSWORD: ci_password,
+            POSTGRES_DB: dealership_test,
+          }
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U dealership" --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql://dealership:ci_password@localhost:5432/dealership_test
+      DATABASE_URL: postgresql://dealership:ci_password@localhost:5432/dealership_test
+      PGPASSWORD: ci_password
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npx prisma generate
+        working-directory: backend
+      - run: npm run format:check
+      - run: npm run typecheck
+      - run: npm run lint
+
+      - name: Migrations apply cleanly with Prisma and match schema.prisma (no drift)
+        working-directory: backend
+        run: |
+          psql -h localhost -U dealership -d postgres -c "CREATE DATABASE migrate_check;"
+          export DATABASE_URL=postgresql://dealership:ci_password@localhost:5432/migrate_check
+          npx prisma migrate deploy
+          # CHECK constraints are not modelled by Prisma; this compares tables, columns and indexes.
+          npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
+
+      - name: Backend tests (unit + integration, real PostgreSQL)
+        run: npm run test:coverage -w backend
+      - name: Frontend tests
+        run: npm run test:coverage -w frontend
+      - run: npm run build
+      - name: Dependency audit (production dependencies)
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: End-to-end tests
+        run: |
+          npx playwright install --with-deps chromium
+          psql -h localhost -U dealership -d postgres -c "CREATE DATABASE dealership_e2e;"
+          npm run test -w e2e
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reports
+          path: |
+            reports/
+            e2e/test-results/

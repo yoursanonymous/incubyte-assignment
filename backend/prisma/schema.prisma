@@ -1,0 +1,134 @@
+// Data model: see docs/data-model.md. CHECK constraints are appended to the init migration.
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  CUSTOMER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum VehicleCategory {
+  SEDAN
+  SUV
+  TRUCK
+  COUPE
+  HATCHBACK
+  CONVERTIBLE
+  VAN
+  WAGON
+}
+
+model User {
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email        String     @unique
+  passwordHash String     @map("password_hash")
+  role         Role       @default(CUSTOMER)
+  status       UserStatus @default(ACTIVE)
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  purchases       Purchase[]
+  refreshTokens   RefreshToken[]
+  idempotencyKeys IdempotencyKey[]
+  auditEvents     AuditEvent[]
+
+  @@map("users")
+}
+
+model Vehicle {
+  id         String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  make       String          @db.VarChar(60)
+  model      String          @db.VarChar(60)
+  category   VehicleCategory
+  priceCents Int             @map("price_cents")
+  quantity   Int             @default(0)
+  archivedAt DateTime?       @map("archived_at") @db.Timestamptz(3)
+  createdAt  DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  purchases Purchase[]
+
+  @@index([archivedAt, make, model, id])
+  @@index([category])
+  @@index([priceCents])
+  @@map("vehicles")
+}
+
+model Purchase {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  vehicleId      String   @map("vehicle_id") @db.Uuid
+  quantity       Int
+  unitPriceCents Int      @map("unit_price_cents")
+  totalCents     BigInt   @map("total_cents")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user            User             @relation(fields: [userId], references: [id], onDelete: Restrict)
+  vehicle         Vehicle          @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  idempotencyKeys IdempotencyKey[]
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([vehicleId])
+  @@map("purchases")
+}
+
+model IdempotencyKey {
+  userId         String   @map("user_id") @db.Uuid
+  operation      String   @db.VarChar(40)
+  key            String   @db.VarChar(128)
+  requestHash    String   @map("request_hash") @db.Char(64)
+  purchaseId     String   @map("purchase_id") @db.Uuid
+  responseStatus Int      @map("response_status")
+  responseBody   Json     @map("response_body")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  purchase Purchase @relation(fields: [purchaseId], references: [id], onDelete: Restrict)
+
+  @@id([userId, operation, key])
+  @@map("idempotency_keys")
+}
+
+model RefreshToken {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  familyId  String    @map("family_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash") @db.Char(64)
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(3)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(3)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([familyId])
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model AuditEvent {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actorId    String?  @map("actor_id") @db.Uuid
+  action     String   @db.VarChar(60)
+  targetType String   @map("target_type") @db.VarChar(40)
+  targetId   String   @map("target_id") @db.VarChar(64)
+  metadata   Json     @default("{}")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([targetType, targetId])
+  @@index([createdAt])
+  @@map("audit_events")
+}
